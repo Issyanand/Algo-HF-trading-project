@@ -1,22 +1,13 @@
-# 821 project
-# Authors: Issy Anand, Julien Bessette
-
 library(qrmtools)
 library(MASS)
 library(tseries)
 library(forecast)
 
 #PROBLEM 1
-data <- read.csv('_GSPC.csv')
+#data <- read.csv('_GSPC.csv')
+data <- read.csv('MF821_sp500data.csv')
 data <- data$Adj.Close
-rets <- returns(data)
-rets <- rets[2:length(rets)]
-
-#rets <- c()
-#for (i in 1:(length(data)-1)){
-#  return <- log(data[i+1]/data[i])
-  #rets <- c(rets2, c(return))
-#}
+rets <- diff(log(data),lag=1)
 
 fit <- fitdistr(rets, 'Normal')
 para <- fit$estimate
@@ -30,55 +21,106 @@ qqline(rets)
 
 #PROBLEM 2
 #a) Using the given data as portfolio formation period, will use data downloaded after final date as testing period
+
 #b)
 rets_ts <- ts(rets, frequency = 365)
-ar1 <- arma(rets_ts, order=c(1,0)) # we use the arma function to estimate the paramtere of the AR. the arima function would result in slightly different results
-par(mfrow=c(1,2))
-Acf(rets_ts, main = "ACF of the log-returns") # for an AR(1) model, PACF should drop close to 0 for lags 2, 3, ...
-# doesn't look really significant in this case
-Pacf(rets_ts, main = "PACF of the log-returns")
-#lag1 autocorrelation of an AR(1) model = coefficient, therefore there is not significant negative lag-1 autocorrelation
-# from the two previous graphs, w can't be sure that an order of 1 fits well the data
+time <- c(1:length(rets))/252
+S_ave <- lm(data[1:length(rets)] ~ time)
 
-#c) Very confused about this part, couldnt find the slide he was refering to
+#c) 
+Y <- data[1:length(rets)] - S_ave$fitted.values
+delta_Y <- diff(Y,lag=1)
+ar1 <- arima(delta_Y, order=c(1,0,0))
+par(mfrow=c(1,2))
+Acf(rets_ts, main = "ACF of delta_y")
+Pacf(rets_ts, main = "PACF of delta_y")
+#The lag one autocorrelation is given bu the ar1 coefficient, in this case there is siginificant negative autocorrelation
+#for an AR(1) model the PACF should drop close to zero for lags 2,3,...
+#From the Pacf the later lag partial autocorrelations arent overly significant but
+#we cant be 100% sure an ar(1) is a good fit for the
+
+
+#d) Very confused about this part, couldnt find the slide he was refering to
 #Is the continuous time mean reverting model the Ornstein-Uhlenbeck model?
 #If so, to extract this model from an AR(1) model with intercept a, coefficient b:
-#OU model: dxt = theta*(mu-xt)*dt + sigma*dWt
-#where mu = -a/b, theta = -b
-mu = -ar1$coef[2]/ar1$coef[1]
-theta = -ar1$coef[1]
-sigma = sd(ar1$residuals[2:22])
+#OU model: dxt = kappa*(theta-xt)*dt + sigma*dWt
+#where theta = -a/b, kappa = -b
+kappa = as.numeric(1-ar1$coef[1])
+#Is theta right?
+theta = as.numeric((1/kappa)*(mean(delta_Y+kappa*Y[1:(length(Y)-1)])))
+sigma = sd(Y)
 
-
+par(mfrow=c(1,1))
 #PROBLEM 3
-plot(rets_ts)
-abline(h = mu, col = "red")
-abline(h = mu + sigma, col = "blue")
-abline(h = mu - sigma, col = "blue")
-abline(h = 11 * mu / 10, lty = 2)
-abline(h = 9 * mu / 10, lty = 2)
+library(zoo)
+preds = predict.lm(S_ave,data.frame('time' = c(1:length(adj_close)) / 252))
+rolling_preds = rollapply(preds,3, mean)
+Y_u = rolling_preds + 3*sigma
+Y_l = rolling_preds - 3*sigma
+plot(data[1:length(data)], type = 'l')
+lines(Y_u, col = "red")
+lines(Y_l, col = "blue")
 
-
-
-
-#sim <- arima.sim(n = 5000, list(ar = c(0.3)), sd = sqrt(vari), mean = 0)
-#Acf(sim)
-#Pacf(sim)
-
-#sim <- arima.sim(n = 5000, list(ma = c(0.7)), sd = sqrt(vari), mean = 0)
-#Acf(sim)
-#Pacf(sim)
-
-create_df_BB <- function(returns, window, no_sd){
-  mov_avg <- rollapply(returns, window, mean)
-  mov_sd <- rollapply(returns, window, sd)
-  up_bound <- mov_avg + no_sd * mov_sd
-  low_bound <- mov_avg - no_sd * mov_sd
-  df <- data.frame("Rolling Average" = mov_avg, "Upper bound" = up_bound,
+create_df_BB <- function(rets, window, no_sd){
+  moving_avg <- rollapply(rets, window, mean)
+  moving_sd <- rollapply(rets, window, sd)
+  up_bound <- moving_avg + no_sd * moving_sd
+  low_bound <- moving_avg - no_sd * moving_sd
+  df <- data.frame("Rolling Average" = moving_avg, "Upper bound" = up_bound,
                    "Lower bound" = low_bound)
   return(df)
 }
+bb = create_df_BB(data[1:56], 3, 0.75)
+plot(data[1:56], type = 'l')
+lines(bb$Upper.bound, col = 'red')
+lines(bb$Lower.bound, col = 'red')
+lines(bb$Rolling.Average, col  = 'blue')
+
+#PROBLEM 4
+#nn <- 40
+M <- 1000 #size of price mesh
+s_max <- 2000
+hs <- 2*s_max/M
+T <- (length(data))/252 #time period
+N <- 500 #size of time mesh
+ht <- T/N
+#create price series
+s <- seq(-s_max,s_max,hs)
+#create time series
+t <- seq(0,T,ht)
+a <- (1-ht*sigma**2/(hs**2))
+l <- (-kappa*(theta-s)*(ht/(2*hs))+(ht*sigma**2/(2*hs**2)))
+u <- (kappa*(theta-s)*(ht/(2*hs))+(ht*sigma**2/(2*hs**2)))
+A <- diag(a, nrow=M-1,M-1)
+for (i in 1:M-2){
+  A[i,i+1] <- u[i+1];
+  A[i+1,i] <- l[i+2]
+}
+
+fun_y_preds <- function(time_input){
+  return(as.numeric(ar1$coef[1]) + as.numeric(ar1$coef[2]) * (time_input))
+}
 
 
-
-
+find_H <- function(N,s,c){
+  mat <- matrix(data=0,nrow=M-1,ncol=N)
+  H_T <- s + fun_y_preds(T) - c
+  H_T <- H_T[2:(length(H_T)-1)]
+  HN <- H_T
+  for (j in 1:(N)){
+    H_T <- s + fun_y_preds(T-j*ht) - c
+    b_end <- u[M]*H_T[M+1]
+    b_start <- l[1]*H_T[1]
+    b <- matrix(data = c(b_start,rep(0,M-3),b_end),nrow=M-1,ncol=1)
+    H_T <- H_T[2:(length(H_T)-1)]
+    HN <- A %*% HN + b
+    mat_new <- matrix(data=0,nrow=length(H_T),ncol=1)
+    for (w in 1:length(H_T)){
+      mat[w,N-j+1]<- max(HN[w,1],H_T[w])
+      mat_new[w,1]<- max(HN[w,1],H_T[w])
+    }
+    HN <- mat_new
+  }
+  return(mat)
+}
+value <- find_H(N,s,c=100)
