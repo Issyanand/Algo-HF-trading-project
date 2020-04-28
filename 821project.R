@@ -24,16 +24,17 @@ qqline(rets)
 
 #b)
 rets_ts <- ts(rets, frequency = 365)
-time <- c(1:length(rets))/252
-S_ave <- lm(data[1:length(rets)] ~ time)
-
+plot(data)
+time <- c(1:45)/252
+S_ave <- lm(data[1:45] ~ time)
+S_ave$coefficients
 #c) 
-Y <- data[1:length(rets)] - S_ave$fitted.values
+Y <- data[1:45] - S_ave$fitted.values
 delta_Y <- diff(Y,lag=1)
 ar1 <- arima(delta_Y, order=c(1,0,0))
-par(mfrow=c(1,2))
-Acf(rets_ts, main = "ACF of delta_y")
-Pacf(rets_ts, main = "PACF of delta_y")
+#par(mfrow=c(1,2))
+Acf(ts(delta_Y), main = "ACF of delta_y")
+Pacf(ts(delta_Y), main = "PACF of delta_y")
 #The lag one autocorrelation is given bu the ar1 coefficient, in this case there is siginificant negative autocorrelation
 #for an AR(1) model the PACF should drop close to zero for lags 2,3,...
 #From the Pacf the later lag partial autocorrelations arent overly significant but
@@ -53,11 +54,11 @@ sigma = sd(Y)
 par(mfrow=c(1,1))
 #PROBLEM 3
 library(zoo)
-preds = predict.lm(S_ave,data.frame('time' = c(1:length(adj_close)) / 252))
+preds = predict.lm(S_ave,data.frame('time' = c(1:length(data[1:45])) / 252))
 rolling_preds = rollapply(preds,3, mean)
 Y_u = rolling_preds + 3*sigma
 Y_l = rolling_preds - 3*sigma
-plot(data[1:length(data)], type = 'l')
+plot(data[1:length(data[1:45])], type = 'l')
 lines(Y_u, col = "red")
 lines(Y_l, col = "blue")
 
@@ -70,22 +71,24 @@ create_df_BB <- function(rets, window, no_sd){
                    "Lower bound" = low_bound)
   return(df)
 }
-bb = create_df_BB(data[1:56], 3, 0.75)
-plot(data[1:56], type = 'l')
+bb = create_df_BB(TESTING DATA HERE, 3, 0.75)
+plot(TESTIGN DATA HERE, type = 'l')
 lines(bb$Upper.bound, col = 'red')
 lines(bb$Lower.bound, col = 'red')
 lines(bb$Rolling.Average, col  = 'blue')
 
 #PROBLEM 4
-#nn <- 40
+
+#################
 M <- 1000 #size of price mesh
 s_max <- 2000
+s_min <- -2000
 hs <- 2*s_max/M
-T <- (length(data))/252 #time period
+T <- (length(data)-40)/252 #time period
 N <- 500 #size of time mesh
 ht <- T/N
 #create price series
-s <- seq(-s_max,s_max,hs)
+s <- seq(s_min,s_max,hs)
 #create time series
 t <- seq(0,T,ht)
 a <- (1-ht*sigma**2/(hs**2))
@@ -98,29 +101,38 @@ for (i in 1:M-2){
 }
 
 fun_y_preds <- function(time_input){
-  return(as.numeric(ar1$coef[1]) + as.numeric(ar1$coef[2]) * (time_input))
+  return(as.numeric(S_ave$coefficients[1]) + as.numeric(S_ave$coefficients[2]) * (time_input+40/252))
 }
 
 
-find_H <- function(N,s,c){
-  mat <- matrix(data=0,nrow=M-1,ncol=N)
+find_H <- function(N, s, c){
+  
+  mat <- matrix(data = 0, nrow = M - 1, ncol = N)
   H_T <- s + fun_y_preds(T) - c
-  H_T <- H_T[2:(length(H_T)-1)]
+  H_T <- H_T[2:(length(H_T) - 1)]
   HN <- H_T
   for (j in 1:(N)){
-    H_T <- s + fun_y_preds(T-j*ht) - c
-    b_end <- u[M]*H_T[M+1]
-    b_start <- l[1]*H_T[1]
-    b <- matrix(data = c(b_start,rep(0,M-3),b_end),nrow=M-1,ncol=1)
-    H_T <- H_T[2:(length(H_T)-1)]
+    H_T <- s + fun_y_preds((T - (j) * ht)) - c
+    b_end <- u[M] * (H_T[M + 1])
+    b_start <- l[1] * H_T[1]
+    H_T <- H_T[2:(length(H_T) - 1)]
+    b <- matrix(data = c(b_start, rep(0, M - 3), b_end), nrow = M - 1, ncol = 1)
+    
     HN <- A %*% HN + b
-    mat_new <- matrix(data=0,nrow=length(H_T),ncol=1)
-    for (w in 1:length(H_T)){
-      mat[w,N-j+1]<- max(HN[w,1],H_T[w])
-      mat_new[w,1]<- max(HN[w,1],H_T[w])
+    mat_new <- matrix(data = 0, nrow = length(H_T), ncol = 1)
+    for (w in 1:(length(H_T))){
+      mat[w,N-j+1] <- max(HN[w, 1], H_T[w])
+      mat_new[w, 1] <- max(HN[w, 1], H_T[w])
     }
     HN <- mat_new
   }
-  return(mat)
+  final_mat <- matrix(data = 0, nrow = length(500), ncol = 1)
+  for (a in 1:500){
+    final_mat[a]<-(which(H_T>=mat[,a])[1])
+  }
+  return(s[final_mat]+S_ave$coefficients[1]+S_ave$coefficients[2]*t[1:500])
 }
-value <- find_H(N,s,c=100)
+
+value <- find_H(N, s, c = 100)
+value
+
