@@ -104,7 +104,7 @@ fun_y_preds <- function(time_input){
   return(as.numeric(S_ave$coefficients[1]) + as.numeric(S_ave$coefficients[2]) * (time_input+40/252))
 }
 
-
+#OPTIMAL EXITING PROBLEM 
 find_H <- function(N, s, c){
   
   mat <- matrix(data = 0, nrow = M - 1, ncol = N)
@@ -136,3 +136,54 @@ find_H <- function(N, s, c){
 value <- find_H(N, s, c = 100)
 value
 
+#OPTIMAL ENTERING PROBLEM
+find_G <- function(N, s, c){
+  
+  mat <- matrix(data = 0, nrow = M - 1, ncol = N)
+  H_T <- s + fun_y_preds(T) - c
+  H_T <- H_T[2:(length(H_T) - 1)]
+  HN <- H_T
+  for (j in 1:(N)){
+    H_T <- s + fun_y_preds((T - (j) * ht)) - c
+    b_end <- u[M] * (H_T[M + 1])
+    b_start <- l[1] * H_T[1]
+    H_T <- H_T[2:(length(H_T) - 1)]
+    b <- matrix(data = c(b_start, rep(0, M - 3), b_end), nrow = M - 1, ncol = 1)
+    
+    HN <- A %*% HN + b
+    mat_new <- matrix(data = 0, nrow = length(H_T), ncol = 1)
+    for (w in 1:(length(H_T))){
+      mat[w,N-j+1] <- max(HN[w, 1], H_T[w])
+      mat_new[w, 1] <- max(HN[w, 1], H_T[w])
+    }
+    HN <- mat_new
+  }
+  H <- mat[,500]
+  mat_G <- matrix(data = 0, nrow = M - 1, ncol = N)
+  H_T_G <- H - s - fun_y_preds(T) - c
+  H_T_G <- H_T_G[2:(length(H_T_G) - 1)]
+  HN_G <- H_T_G
+  for (j in 1:(N)){
+    H_T_G <- H - s - fun_y_preds(T) - c
+    b_end_G <- u[M] * (H_T_G[M + 1])
+    b_start_G <- l[1] * H_T_G[1]
+    H_T_G <- H_T_G[2:(length(H_T_G) - 1)]
+    b_G <- matrix(data = c(b_start_G, rep(0, M - 3), b_end_G), nrow = M - 1, ncol = 1)
+    
+    HN_G <- A %*% HN_G + b_G
+    mat_new_G <- matrix(data = 0, nrow = length(H_T_G), ncol = 1)
+    for (w in 1:(length(H_T_G))){
+      mat_G[w,N-j+1] <- max(HN_G[w, 1], H_T_G[w])
+      mat_new_G[w, 1] <- max(HN_G[w, 1], H_T_G[w])
+    }
+    HN_G <- mat_new_G
+  }
+  final_mat_G <- matrix(data = 0, nrow = length(500), ncol = 1)
+  for (a in 1:500){
+    final_mat_G[a]<-(which(H_T_G<=mat_G[,a])[1])
+  }
+  return(s[final_mat_G]+S_ave$coefficients[1]+S_ave$coefficients[2]*t[1:500])
+}
+
+value2 <- find_G(N, s, c=100)
+value2
