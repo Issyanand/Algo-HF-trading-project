@@ -5,9 +5,11 @@ library(forecast)
 
 #PROBLEM 1
 #data <- read.csv('_GSPC.csv')
-data <- read.csv('MF821_sp500data.csv')
+data <- read.csv('821_final_data.csv')
 data <- data$Adj.Close
+data <- data[1:65]
 rets <- diff(log(data),lag=1)
+plot(data)
 
 fit <- fitdistr(rets, 'Normal')
 para <- fit$estimate
@@ -55,8 +57,8 @@ par(mfrow=c(1,1))
 #PROBLEM 3
 library(zoo)
 preds = predict.lm(S_ave,data.frame('time' = c(1:length(data[1:45])) / 252))
-rolling_preds = rollapply(preds,3, mean)
 Y_u = rolling_preds + 3*sigma
+rolling_preds = rollapply(preds,3, mean)
 Y_l = rolling_preds - 3*sigma
 plot(data[1:length(data[1:45])], type = 'l')
 lines(Y_u, col = "red")
@@ -67,16 +69,16 @@ create_df_BB <- function(rets, window, no_sd){
   moving_sd <- rollapply(rets, window, sd)
   up_bound <- moving_avg + no_sd * moving_sd
   low_bound <- moving_avg - no_sd * moving_sd
-  df <- data.frame("Rolling Average" = moving_avg, "Upper bound" = up_bound,
-                   "Lower bound" = low_bound)
+  df <- data.frame("Rolling_Ave" = moving_avg, "Upper_bound" = up_bound,
+                   "Lower_bound" = low_bound)
   return(df)
 }
-bb = create_df_BB(TESTING DATA HERE, 3, 0.75)
-plot(TESTIGN DATA HERE, type = 'l')
-lines(bb$Upper.bound, col = 'red')
-lines(bb$Lower.bound, col = 'red')
-lines(bb$Rolling.Average, col  = 'blue')
+bb = create_df_BB(data[45:65], 3, 0.75)
+plot(data[45:65], type = 'l')
+lines(bb$Lower_bound, col = 'red')
+lines(bb$Upper_bound, col = 'red')
 
+lines(bb$Rolling_Ave, col  = 'blue')
 #PROBLEM 4
 
 #################
@@ -84,7 +86,7 @@ M <- 1000 #size of price mesh
 s_max <- 2000
 s_min <- -2000
 hs <- 2*s_max/M
-T <- (length(data)-40)/252 #time period
+T <- (length(data)-45)/252 #time period
 N <- 500 #size of time mesh
 ht <- T/N
 #create price series
@@ -101,10 +103,10 @@ for (i in 1:M-2){
 }
 
 fun_y_preds <- function(time_input){
-  return(as.numeric(S_ave$coefficients[1]) + as.numeric(S_ave$coefficients[2]) * (time_input+40/252))
+  return(as.numeric(S_ave$coefficients[1]) + as.numeric(S_ave$coefficients[2]) * (time_input+45/252))
 }
 
-#OPTIMAL EXITING PROBLEM 
+
 find_H <- function(N, s, c){
   
   mat <- matrix(data = 0, nrow = M - 1, ncol = N)
@@ -136,7 +138,7 @@ find_H <- function(N, s, c){
 value <- find_H(N, s, c = 100)
 value
 
-#OPTIMAL ENTERING PROBLEM
+
 find_G <- function(N, s, c){
   
   mat <- matrix(data = 0, nrow = M - 1, ncol = N)
@@ -187,3 +189,10 @@ find_G <- function(N, s, c){
 
 value2 <- find_G(N, s, c=100)
 value2
+
+SP500_price <- data[45:65]
+time_days <- 1:21
+ggdat <- data.frame(SP500_price, time_(days))
+plot(time_days,SP500_price,type='l',ylim=c(1000,4000))
+lines(value,col='red')
+lines(value2,col='red')
