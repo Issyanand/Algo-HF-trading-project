@@ -7,9 +7,10 @@ library(forecast)
 #data <- read.csv('_GSPC.csv')
 data <- read.csv('821_final_data.csv')
 data <- data$Adj.Close
-data <- data[1:65]
 rets <- diff(log(data),lag=1)
-plot(data)
+plot(data,type='l',ylab = 'S&P500 price',xlab = 'days')
+title('S&P500 Price from 02/01/2020 to 02/04/2020')
+abline(v=45, col="red", lty=2, lwd=3)
 
 fit <- fitdistr(rets, 'Normal')
 para <- fit$estimate
@@ -26,9 +27,14 @@ qqline(rets)
 
 #b)
 rets_ts <- ts(rets, frequency = 365)
-plot(data)
 time <- c(1:45)/252
+time2 <- c(1:65)/252
 S_ave <- lm(data[1:45] ~ time)
+line1 <- S_ave$coefficients[1]+S_ave$coefficients[2]*time2
+lines(line1,col='red')
+line1
+
+
 S_ave$coefficients
 #c) 
 Y <- data[1:45] - S_ave$fitted.values
@@ -57,8 +63,8 @@ par(mfrow=c(1,1))
 #PROBLEM 3
 library(zoo)
 preds = predict.lm(S_ave,data.frame('time' = c(1:length(data[1:45])) / 252))
-Y_u = rolling_preds + 3*sigma
 rolling_preds = rollapply(preds,3, mean)
+Y_u = rolling_preds + 3*sigma
 Y_l = rolling_preds - 3*sigma
 plot(data[1:length(data[1:45])], type = 'l')
 lines(Y_u, col = "red")
@@ -73,7 +79,7 @@ create_df_BB <- function(rets, window, no_sd){
                    "Lower_bound" = low_bound)
   return(df)
 }
-bb = create_df_BB(data[45:65], 3, 0.75)
+bb = create_df_BB(data[45:67], 3, 0.75)
 plot(data[45:65], type = 'l')
 lines(bb$Lower_bound, col = 'red')
 lines(bb$Upper_bound, col = 'red')
@@ -83,10 +89,10 @@ lines(bb$Rolling_Ave, col  = 'blue')
 
 #################
 M <- 1000 #size of price mesh
-s_max <- 2000
-s_min <- -2000
-hs <- 2*s_max/M
-T <- (length(data)-45)/252 #time period
+s_max <- 1000
+s_min <- -1000
+hs <- (2*s_max)/M
+T <- (length(data)-44)/252 #time period
 N <- 500 #size of time mesh
 ht <- T/N
 #create price series
@@ -103,18 +109,20 @@ for (i in 1:M-2){
 }
 
 fun_y_preds <- function(time_input){
-  return(as.numeric(S_ave$coefficients[1]) + as.numeric(S_ave$coefficients[2]) * (time_input+45/252))
+  return(as.numeric(S_ave$coefficients[1]) + as.numeric(S_ave$coefficients[2]) * (time_input+44/252))
 }
 
 
 find_H <- function(N, s, c){
   
   mat <- matrix(data = 0, nrow = M - 1, ncol = N)
-  H_T <- s + fun_y_preds(T) - c
+  #H_T <- s + fun_y_preds(T) - c
+  H_T <- s-c
   H_T <- H_T[2:(length(H_T) - 1)]
   HN <- H_T
   for (j in 1:(N)){
-    H_T <- s + fun_y_preds((T - (j) * ht)) - c
+   # H_T <- s + fun_y_preds((T - (j) * ht)) - c
+    H_T <- s - c
     b_end <- u[M] * (H_T[M + 1])
     b_start <- l[1] * H_T[1]
     H_T <- H_T[2:(length(H_T) - 1)]
@@ -142,11 +150,13 @@ value
 find_G <- function(N, s, c){
   
   mat <- matrix(data = 0, nrow = M - 1, ncol = N)
-  H_T <- s + fun_y_preds(T) - c
+  #H_T <- s + fun_y_preds(T) - c
+  H_T <- s-c
   H_T <- H_T[2:(length(H_T) - 1)]
   HN <- H_T
   for (j in 1:(N)){
-    H_T <- s + fun_y_preds((T - (j) * ht)) - c
+    # H_T <- s + fun_y_preds((T - (j) * ht)) - c
+    H_T <- s - c
     b_end <- u[M] * (H_T[M + 1])
     b_start <- l[1] * H_T[1]
     H_T <- H_T[2:(length(H_T) - 1)]
@@ -162,11 +172,13 @@ find_G <- function(N, s, c){
   }
   H <- mat[,500]
   mat_G <- matrix(data = 0, nrow = M - 1, ncol = N)
-  H_T_G <- H - s - fun_y_preds(T) - c
+  #H_T_G <- H - s - fun_y_preds(T) - c
+  H_T_G <- H - s - c
   H_T_G <- H_T_G[2:(length(H_T_G) - 1)]
   HN_G <- H_T_G
   for (j in 1:(N)){
-    H_T_G <- H - s - fun_y_preds(T) - c
+    # H_T_G <- H - s - fun_y_preds((T - (j) * ht)) - c
+    H_T_G <- H - s - c
     b_end_G <- u[M] * (H_T_G[M + 1])
     b_start_G <- l[1] * H_T_G[1]
     H_T_G <- H_T_G[2:(length(H_T_G) - 1)]
@@ -190,9 +202,18 @@ find_G <- function(N, s, c){
 value2 <- find_G(N, s, c=100)
 value2
 
+moving_avg <- rollapply(data[45:67],3,mean)
+n <- as.integer(500/21)
+up_bound <- matrix(data=0,nrow=21,ncol=1)
+low_bound <- matrix(data=0,nrow=21,ncol=1)
+for (i in 1:21){
+  up_bound[i] <- value[n*i]
+  low_bound[i] <- value2[n*i]
+}
+df_OB <- data.frame("Rolling_Ave"=moving_avg,"Upper_bound"=up_bound,"Lower_bound"=low_bound)
 SP500_price <- data[45:65]
 time_days <- 1:21
-ggdat <- data.frame(SP500_price, time_(days))
+ggdat <- data.frame(SP500_price, time_days)
 plot(time_days,SP500_price,type='l',ylim=c(1000,4000))
-lines(value,col='red')
-lines(value2,col='red')
+lines(df_OB$Upper_bound,col='red')
+lines(df_OB$Lower_bound, col='red')
