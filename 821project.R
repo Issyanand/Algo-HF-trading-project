@@ -4,11 +4,10 @@ library(tseries)
 library(forecast)
 
 #PROBLEM 1
-#data <- read.csv('_GSPC.csv')
-data <- read.csv('MF821_sp500data.csv')
+data <- read.csv('821_final_data.csv')
 data <- data$Adj.Close
-rets <- diff(log(data),lag=1)
-plot(data,type='l',ylab = 'S&P500 price',xlab = 'days')
+rets <- diff(log(data[1:65]),lag=1)
+plot(data[1:65],type='l',ylab = 'S&P500 price',xlab = 'days')
 title('S&P500 Price from 02/01/2020 to 02/04/2020')
 abline(v=45, col="red", lty=2, lwd=3)
 
@@ -16,11 +15,9 @@ fit <- fitdistr(rets, 'Normal')
 para <- fit$estimate
 hist(rets, breaks = 30, main='Histogram of log returns', xlab='log returns', prob = TRUE)
 curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
-#Empirical distribution clearly not normal, frequencies still high around the tails of the fitted distribution
 qqnorm(rets, main = "Normal Q-Q plot of the S&P500 log returns")
 qqline(rets)
-# data have more extreme values that would be expected if they care from normal distribution 
-# it has heavier tails
+
 
 #PROBLEM 2
 #a) Using the given data as portfolio formation period, will use data downloaded after final date as testing period
@@ -28,37 +25,25 @@ qqline(rets)
 #b)
 rets_ts <- ts(rets, frequency = 365)
 time <- c(1:45)/252
-time2 <- c(1:65)/252
 S_ave <- lm(data[1:45] ~ time)
-line1 <- S_ave$coefficients[1]+S_ave$coefficients[2]*time2
-lines(line1,col='red')
-line1
-
 S_ave$coefficients
+
 #c) 
 Y <- data[1:45] - S_ave$fitted.values
 delta_Y <- diff(Y,lag=1)
 ar1 <- arima(delta_Y, order=c(1,0,0))
-#par(mfrow=c(1,2))
 Acf(ts(delta_Y), main = "ACF of delta_y")
 Pacf(ts(delta_Y), main = "PACF of delta_y")
-#The lag one autocorrelation is given bu the ar1 coefficient, in this case there is siginificant negative autocorrelation
-#for an AR(1) model the PACF should drop close to zero for lags 2,3,...
-#From the Pacf the later lag partial autocorrelations arent overly significant but
-#we cant be 100% sure an ar(1) is a good fit for the
 
 
-#d) Very confused about this part, couldnt find the slide he was refering to
-#Is the continuous time mean reverting model the Ornstein-Uhlenbeck model?
-#If so, to extract this model from an AR(1) model with intercept a, coefficient b:
+#d) 
+#Extract this model from an AR(1) model with intercept a, coefficient b:
 #OU model: dxt = kappa*(theta-xt)*dt + sigma*dWt
 #where theta = -a/b, kappa = -b
 kappa = as.numeric(1-ar1$coef[1])
-#Is theta right?
 theta = as.numeric((1/kappa)*(mean(delta_Y+kappa*Y[1:(length(Y)-1)])))
 sigma = sd(Y)
 
-par(mfrow=c(1,1))
 #PROBLEM 3
 library(zoo)
 preds = predict.lm(S_ave,data.frame('time' = c(1:length(data[1:45])) / 252))
@@ -91,9 +76,8 @@ lines(bb$Rolling_Ave, col  = 'blue')
 #inner bands
 lines(bb$Inner_upper_bound, col  = 'green')
 lines(bb$Inner_lower_bound, col  = 'green')
-#PROBLEM 4
 
-#################
+#PROBLEM 4
 M <- 1000 #size of price mesh
 s_max <- 1000
 s_min <- -1000
@@ -114,20 +98,13 @@ for (i in 1:M-2){
   A[i+1,i] <- l[i+2]
 }
 
-fun_y_preds <- function(time_input){
-  return(as.numeric(S_ave$coefficients[1]) + as.numeric(S_ave$coefficients[2]) * (time_input+44/252))
-}
-
-
 find_H <- function(N, s, c){
   
   mat <- matrix(data = 0, nrow = M - 1, ncol = N)
-  #H_T <- s + fun_y_preds(T) - c
   H_T <- s-c
   H_T <- H_T[2:(length(H_T) - 1)]
   HN <- H_T
   for (j in 1:(N)){
-   # H_T <- s + fun_y_preds((T - (j) * ht)) - c
     H_T <- s - c
     b_end <- u[M] * (H_T[M + 1])
     b_start <- l[1] * H_T[1]
@@ -156,12 +133,10 @@ value
 find_G <- function(N, s, c){
   
   mat <- matrix(data = 0, nrow = M - 1, ncol = N)
-  #H_T <- s + fun_y_preds(T) - c
   H_T <- s-c
   H_T <- H_T[2:(length(H_T) - 1)]
   HN <- H_T
   for (j in 1:(N)){
-    # H_T <- s + fun_y_preds((T - (j) * ht)) - c
     H_T <- s - c
     b_end <- u[M] * (H_T[M + 1])
     b_start <- l[1] * H_T[1]
@@ -178,12 +153,10 @@ find_G <- function(N, s, c){
   }
   H <- mat[,500]
   mat_G <- matrix(data = 0, nrow = M - 1, ncol = N)
-  #H_T_G <- H - s - fun_y_preds(T) - c
   H_T_G <- H - s - c
   H_T_G <- H_T_G[2:(length(H_T_G) - 1)]
   HN_G <- H_T_G
   for (j in 1:(N)){
-    # H_T_G <- H - s - fun_y_preds((T - (j) * ht)) - c
     H_T_G <- H - s - c
     b_end_G <- u[M] * (H_T_G[M + 1])
     b_start_G <- l[1] * H_T_G[1]
