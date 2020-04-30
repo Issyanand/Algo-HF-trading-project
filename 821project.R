@@ -77,6 +77,73 @@ lines(bb$Rolling_Ave, col  = 'blue')
 lines(bb$Inner_upper_bound, col  = 'green')
 lines(bb$Inner_lower_bound, col  = 'green')
 
+#trading
+book_value <- 1000 #initial amount we can invest
+bv_vector <- c(book_value) #keeping track of book value over time
+shares <- 0 #our position. If =0, we can buy/sell. If <0, we can only close a short pos. If >0, we can only close a long pos
+pos_value <- 0 #value of our position. For example if we short when the price is $3000, this becomes +$3000
+index <- 1
+#on the first day of the testing period, we can only buy or sell
+#there are no existing positions to close
+first_day_price <- data[45]
+if(first_day_price >= bb$Upper_bound[index]){
+  #open short pos
+  shares <- -1 #short 1 share
+  pos_value <- first_day_price #get the price back in cash
+} else if (first_day_price <= bb$Lower_bound[index]) {
+  #open long pos
+  shares <- (book_value/first_day_price) #we can only buy $1000 worth of shares on the first day
+  pos_value <- book_value #follows from the last line
+} #otherwise do nothing
+index <- index + 1
+#loop through the second day until the second to last day of the testing period
+#during this time, we can both open new positions and close existing positions
+#just in case we have a day where we can both close a pos and open a new one, we need to make sure we close first
+for (price_today in data[46:64]){
+  #5 cases - close short/long pos, open short/long pos, do nothing
+  if (price_today <= bb$Inner_upper_bound[index] & shares < 0){
+    #close short pos
+    book_value <- book_value + (pos_value - price_today)
+    shares <- 0
+    pos_value <- 0
+  } else if (price_today >= bb$Inner_lower_bound[index] & shares > 0){
+    #close long pos
+    book_value <- book_value + (price_today - pos_value)
+    shares <- 0
+    pos_value <- 0
+  } else if (price_today >= bb$Upper_bound[index] & shares == 0){
+    #open short pos
+    shares <- -1
+    pos_value <- price_today
+  } else if (price_today <= bb$Lower_bound[index] & shares == 0){
+    #open long pos
+    shares <- (book_value/price_today)
+    pos_value <- book_value
+  } #otherwise do nothing
+  index <- index + 1
+  bv_vector <- append(bv_vector,book_value)
+}
+#on the last day, we can only close existing positions
+#no opening new positions allowed
+last_day_price <- data[65]
+if(last_day_price <= bb$Inner_upper_bound[length(bb$Inner_upper_bound)] & shares < 0){
+  #close short pos
+  book_value <- book_value + (pos_value - last_day_price)
+  shares <- 0
+  pos_value <- 0
+} else if (first_day_price >= bb$Inner_lower_bound[length(bb$Inner_lower_bound)] & shares > 0) {
+  #close long pos
+  book_value <- book_value + (last_day_price - pos_value)
+  shares <- 0
+  pos_value <- 0
+} #otherwise do nothing
+bv_vector <- append(bv_vector,book_value)
+#plot book value over time
+plot(bv_vector,type='l',ylab="Book Value")
+lines(data[45:65], col = "blue")
+print(bv_vector)
+print(data[45:65])
+
 #PROBLEM 4
 M <- 1000 #size of price mesh
 s_max <- 1000
