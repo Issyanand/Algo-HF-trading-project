@@ -109,7 +109,7 @@ for (price_today in data[46:64]){
   }
   if (price_today >= bb$Inner_lower_bound[index] & shares > 0){
     #close long pos
-    book_value <- book_value + (price_today - pos_value)
+    book_value <- book_value + (price_today*shares - pos_value)
     shares <- 0
     pos_value <- 0
   } 
@@ -123,27 +123,29 @@ for (price_today in data[46:64]){
     shares <- (book_value/price_today)
     pos_value <- book_value
   } #otherwise do nothing
+  print(bb$Inner_upper_bound[index])
+  print(bb$Inner_lower_bound[index])
   index <- index + 1
   bv_vector <- append(bv_vector,book_value)
 }
 #on the last day, we can only close existing positions
 #no opening new positions allowed
 last_day_price <- data[65]
-if(last_day_price <= bb$Inner_upper_bound[length(bb$Inner_upper_bound)] & shares < 0){
+if(last_day_price <= bb$Inner_upper_bound[index] & shares < 0){
   #close short pos
   book_value <- book_value + (pos_value - last_day_price)
   shares <- 0
   pos_value <- 0
-} else if (first_day_price >= bb$Inner_lower_bound[length(bb$Inner_lower_bound)] & shares > 0) {
+} else if (first_day_price >= bb$Inner_lower_bound[index] & shares > 0) {
   #close long pos
-  book_value <- book_value + (last_day_price - pos_value)
+  book_value <- book_value + (last_day_price*shares - pos_value)
   shares <- 0
   pos_value <- 0
 } #otherwise do nothing
 bv_vector <- append(bv_vector,book_value)
 #plot book value over time
 plot(bv_vector,type='l',ylab="Book Value")
-lines(data[45:65], col = "blue")
+
 
 #PROBLEM 4
 M <- 1000 #size of price mesh
