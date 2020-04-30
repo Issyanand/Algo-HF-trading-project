@@ -5,7 +5,7 @@ library(forecast)
 
 #PROBLEM 1
 #data <- read.csv('_GSPC.csv')
-data <- read.csv('821_final_data.csv')
+data <- read.csv('MF821_sp500data.csv')
 data <- data$Adj.Close
 rets <- diff(log(data),lag=1)
 plot(data,type='l',ylab = 'S&P500 price',xlab = 'days')
@@ -33,7 +33,6 @@ S_ave <- lm(data[1:45] ~ time)
 line1 <- S_ave$coefficients[1]+S_ave$coefficients[2]*time2
 lines(line1,col='red')
 line1
-
 
 S_ave$coefficients
 #c) 
@@ -70,21 +69,28 @@ plot(data[1:length(data[1:45])], type = 'l')
 lines(Y_u, col = "red")
 lines(Y_l, col = "blue")
 
-create_df_BB <- function(rets, window, no_sd){
+create_df_BB <- function(rets, window, no_sd, inner_sd){
   moving_avg <- rollapply(rets, window, mean)
   moving_sd <- rollapply(rets, window, sd)
   up_bound <- moving_avg + no_sd * moving_sd
   low_bound <- moving_avg - no_sd * moving_sd
+  #adding the inner bands where we close our position
+  inner_up_bound <- moving_avg + inner_sd * moving_sd
+  inner_low_bound <- moving_avg - inner_sd * moving_sd
   df <- data.frame("Rolling_Ave" = moving_avg, "Upper_bound" = up_bound,
-                   "Lower_bound" = low_bound)
+                   "Lower_bound" = low_bound, "Inner_upper_bound" = inner_up_bound, 
+                   "Inner_lower_bound" = inner_low_bound)
   return(df)
 }
-bb = create_df_BB(data[45:67], 3, 0.75)
+bb = create_df_BB(data[45:67], 3, 0.75, 0.1)
 plot(data[45:65], type = 'l')
 lines(bb$Lower_bound, col = 'red')
 lines(bb$Upper_bound, col = 'red')
 
 lines(bb$Rolling_Ave, col  = 'blue')
+#inner bands
+lines(bb$Inner_upper_bound, col  = 'green')
+lines(bb$Inner_lower_bound, col  = 'green')
 #PROBLEM 4
 
 #################
