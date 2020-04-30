@@ -106,16 +106,19 @@ for (price_today in data[46:64]){
     book_value <- book_value + (pos_value - price_today)
     shares <- 0
     pos_value <- 0
-  } else if (price_today >= bb$Inner_lower_bound[index] & shares > 0){
+  }
+  if (price_today >= bb$Inner_lower_bound[index] & shares > 0){
     #close long pos
     book_value <- book_value + (price_today - pos_value)
     shares <- 0
     pos_value <- 0
-  } else if (price_today >= bb$Upper_bound[index] & shares == 0){
+  } 
+  if (price_today >= bb$Upper_bound[index] & shares == 0){
     #open short pos
     shares <- -1
     pos_value <- price_today
-  } else if (price_today <= bb$Lower_bound[index] & shares == 0){
+  } 
+  if (price_today <= bb$Lower_bound[index] & shares == 0){
     #open long pos
     shares <- (book_value/price_today)
     pos_value <- book_value
@@ -141,8 +144,6 @@ bv_vector <- append(bv_vector,book_value)
 #plot book value over time
 plot(bv_vector,type='l',ylab="Book Value")
 lines(data[45:65], col = "blue")
-print(bv_vector)
-print(data[45:65])
 
 #PROBLEM 4
 M <- 1000 #size of price mesh
