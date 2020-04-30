@@ -78,22 +78,27 @@ lines(bb$Inner_upper_bound, col  = 'green')
 lines(bb$Inner_lower_bound, col  = 'green')
 
 #trading
-book_value <- 1000 #initial amount we can invest
-bv_vector <- c(book_value) #keeping track of book value over time
+cash <- 1000 #initial amount we can invest
 shares <- 0 #our position. If =0, we can buy/sell. If <0, we can only close a short pos. If >0, we can only close a long pos
-pos_value <- 0 #value of our position. For example if we short when the price is $3000, this becomes +$3000
+pos_value <- 0 #value of our position
+book_value <- 1000
+bv_vector <- c(book_value) #keeping track of book value over time
 index <- 1
-#on the first day of the testing period, we can only buy or sell
+#on the first day of the testing period, we can only open a position
 #there are no existing positions to close
 first_day_price <- data[45]
 if(first_day_price >= bb$Upper_bound[index]){
   #open short pos
   shares <- -1 #short 1 share
-  pos_value <- first_day_price #get the price back in cash
+  pos_value <- first_day_price
+  cash <- cash + pos_value
+  book_value <- cash + shares*pos_value
 } else if (first_day_price <= bb$Lower_bound[index]) {
   #open long pos
-  shares <- (book_value/first_day_price) #we can only buy $1000 worth of shares on the first day
-  pos_value <- book_value #follows from the last line
+  shares <- (cash/first_day_price) #we can only buy $1000 worth of shares on the first day
+  pos_value <- cash #follows from the last line
+  cash <- 0 #because we spent it all
+  book_value <- shares*pos_value
 } #otherwise do nothing
 index <- index + 1
 #loop through the second day until the second to last day of the testing period
@@ -103,49 +108,58 @@ for (price_today in data[46:64]){
   #5 cases - close short/long pos, open short/long pos, do nothing
   if (price_today <= bb$Inner_upper_bound[index] & shares < 0){
     #close short pos
-    book_value <- book_value + (pos_value - price_today)
+    cash <- cash - price_today
     shares <- 0
     pos_value <- 0
-  }
-  if (price_today >= bb$Inner_lower_bound[index] & shares > 0){
+  } else if (price_today >= bb$Inner_lower_bound[index] & shares > 0){
     #close long pos
-    book_value <- book_value + (price_today*shares - pos_value)
+    cash <- shares*price_today
     shares <- 0
     pos_value <- 0
   } 
   if (price_today >= bb$Upper_bound[index] & shares == 0){
     #open short pos
+    cash <- cash + price_today
     shares <- -1
     pos_value <- price_today
-  } 
-  if (price_today <= bb$Lower_bound[index] & shares == 0){
+  } else if (price_today <= bb$Lower_bound[index] & shares == 0){
     #open long pos
-    shares <- (book_value/price_today)
-    pos_value <- book_value
-  } #otherwise do nothing
-  print(bb$Inner_upper_bound[index])
-  print(bb$Inner_lower_bound[index])
+    shares <- (cash/price_today)
+    pos_value <- cash
+    cash <- 0
+  } #otherwise, do nothing
+  #re-calculate book value depending on our situation
+  if (shares == 0) {
+    # we have no position
+    book_value <- cash
+  } else if (shares < 0){
+    # we have a short position
+    book_value <- cash - price_today
+  } else if (shares > 0) {
+    # we have a long position
+    book_value <- shares*price_today
+  }
   index <- index + 1
   bv_vector <- append(bv_vector,book_value)
 }
 #on the last day, we can only close existing positions
 #no opening new positions allowed
 last_day_price <- data[65]
-if(last_day_price <= bb$Inner_upper_bound[index] & shares < 0){
+if(shares < 0){
   #close short pos
-  book_value <- book_value + (pos_value - last_day_price)
+  cash <- cash - last_day_price
   shares <- 0
   pos_value <- 0
-} else if (first_day_price >= bb$Inner_lower_bound[index] & shares > 0) {
+} else if (shares > 0) {
   #close long pos
-  book_value <- book_value + (last_day_price*shares - pos_value)
+  cash <- shares*last_day_price
   shares <- 0
   pos_value <- 0
 } #otherwise do nothing
+book_value <- cash
 bv_vector <- append(bv_vector,book_value)
 #plot book value over time
 plot(bv_vector,type='l',ylab="Book Value")
-
 
 #PROBLEM 4
 M <- 1000 #size of price mesh
