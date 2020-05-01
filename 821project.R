@@ -67,8 +67,8 @@ create_df_BB <- function(rets, window, no_sd, inner_sd){
                    "Inner_lower_bound" = inner_low_bound)
   return(df)
 }
-bb = create_df_BB(data[45:67], 3, 0.75, 0.1)
-plot(data[45:65], type = 'l')
+bb = create_df_BB(data[45:67], 3, 0.5, 0.1)
+plot(data[45:65], type = 'l',ylab="S&P 500 Price",xlab="Testing Period Day",main=expression(paste(sigma,"=0.5")))
 lines(bb$Lower_bound, col = 'red')
 lines(bb$Upper_bound, col = 'red')
 
@@ -76,6 +76,7 @@ lines(bb$Rolling_Ave, col  = 'blue')
 #inner bands
 lines(bb$Inner_upper_bound, col  = 'green')
 lines(bb$Inner_lower_bound, col  = 'green')
+legend(13,3000,legend=c("S&P 500 Price", "Lower/Upper Bound", "Rolling Average", "Inner Lower/Upper Bound"),col=c("black","red","blue","green"),lty=c(1,1,1,1))
 
 #trading
 cash <- 1000 #initial amount we can invest
@@ -159,7 +160,13 @@ if(shares < 0){
 book_value <- cash
 bv_vector <- append(bv_vector,book_value)
 #plot book value over time
-plot(bv_vector,type='l',ylab="Book Value")
+plot(bv_vector,type='l',xlab="Testing Period Day",ylab="Book Value",main=expression(paste(sigma,"=1")))
+
+#buy and hold
+buy_and_hold_pl <- data[65]-data[45]
+print(buy_and_hold_pl)
+#variance
+var(c(996.17,2135.07))
 
 #PROBLEM 4
 M <- 1000 #size of price mesh
@@ -280,3 +287,92 @@ ggdat <- data.frame(SP500_price, time_days)
 plot(time_days,SP500_price,type='l',ylim=c(1000,4000))
 lines(df_OB$Upper_bound,col='red')
 lines(df_OB$Lower_bound, col='red')
+
+#PROBLEM 5
+#Q3 strategy with trades delayed by one day
+#initialize in the same way as Q3
+bb5 = create_df_BB(data[45:67], 3, 1, 0.1)
+cash <- 1000
+shares <- 0
+pos_value <- 0
+book_value <- 1000
+bv_vector <- c(book_value,book_value) #we can't do anything on the first day
+index <- 1
+#on the first day of the testing period, we can only open a position
+#there are no existing positions to close
+#but this time we must use the price from the following day
+first_day_price <- data[45]
+second_day_price <- data[46]
+if(first_day_price >= bb5$Upper_bound[index]){
+  #open short pos
+  shares <- -1 #short 1 share
+  pos_value <- second_day_price #trade on day 2
+  cash <- cash + pos_value
+  book_value <- cash + shares*pos_value
+} else if (first_day_price <= bb5$Lower_bound[index]) {
+  #open long pos
+  shares <- (cash/second_day_price) #we can only buy $1000 worth of shares on the second day
+  pos_value <- cash
+  cash <- 0
+  book_value <- shares*pos_value
+} #otherwise do nothing
+index <- index + 1
+#loop through the second day until the third to last day of the testing period
+for (price_today in data[46:63]){
+  price_tomorrow <- data[index+45] #get tomorrow's price
+  if (price_today <= bb5$Inner_upper_bound[index] & shares < 0){
+    #close short pos
+    cash <- cash - price_tomorrow #wait a day to close
+    shares <- 0
+    pos_value <- 0
+  } else if (price_today >= bb5$Inner_lower_bound[index] & shares > 0){
+    #close long pos
+    cash <- shares*price_tomorrow #wait a day to close
+    shares <- 0
+    pos_value <- 0
+  } 
+  if (price_today >= bb5$Upper_bound[index] & shares == 0){
+    #open short pos
+    cash <- cash + price_tomorrow #wait a day to open
+    shares <- -1
+    pos_value <- price_tomorrow
+  } else if (price_today <= bb5$Lower_bound[index] & shares == 0){
+    #open long pos
+    shares <- (cash/price_tomorrow)
+    pos_value <- cash
+    cash <- 0
+  } #otherwise, do nothing
+  #re-calculate book value depending on our situation
+  if (shares == 0) {
+    # we have no position
+    book_value <- cash
+  } else if (shares < 0){
+    # we have a short position
+    book_value <- cash - price_tomorrow
+  } else if (shares > 0) {
+    # we have a long position
+    book_value <- shares*price_tomorrow
+  }
+  index <- index + 1
+  bv_vector <- append(bv_vector,book_value)
+}
+#on the second to last day, we can't make the decision to open a new position because it has to wait until the last day to execute
+#only check for closing positions tomorrow
+#this code actually doesn't change
+second_to_last_day_price <- data[64]
+last_day_price <- data[65]
+if(shares < 0){
+  #close short pos
+  cash <- cash - last_day_price
+  shares <- 0
+  pos_value <- 0
+} else if (shares > 0) {
+  #close long pos
+  cash <- shares*last_day_price
+  shares <- 0
+  pos_value <- 0
+} #otherwise do nothing
+book_value <- cash
+bv_vector <- append(bv_vector,book_value)
+#plot book value over time
+plot(bv_vector,type='l',xlab="Testing Period Day",ylab="Book Value",main=expression(paste(sigma,"=1")))
