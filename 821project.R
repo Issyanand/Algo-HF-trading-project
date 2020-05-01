@@ -67,7 +67,7 @@ create_df_BB <- function(rets, window, no_sd, inner_sd){
                    "Inner_lower_bound" = inner_low_bound)
   return(df)
 }
-bb = create_df_BB(data[45:67], 3, 0.5, 0.1)
+bb = create_df_BB(data[45:67], 3, 1, 0.1)
 plot(data[45:65], type = 'l',ylab="S&P 500 Price",xlab="Testing Period Day",main=expression(paste(sigma,"=0.5")))
 lines(bb$Lower_bound, col = 'red')
 lines(bb$Upper_bound, col = 'red')
@@ -165,8 +165,19 @@ plot(bv_vector,type='l',xlab="Testing Period Day",ylab="Book Value",main=express
 #buy and hold
 buy_and_hold_pl <- data[65]-data[45]
 print(buy_and_hold_pl)
-#variance
-var(c(996.17,2135.07))
+#mean, variance, and sharpe ratio
+library(xts)
+daily_returns <- diff(log(bv_vector),1)
+daily_totals <- diff(bv_vector,1)
+print(mean(daily_returns))
+print(mean(daily_totals))
+print(var(daily_returns))
+print(var(daily_totals))
+print(sd(daily_returns))
+total_return <- (bv_vector[length(bv_vector)] - bv_vector[1])/bv_vector[1]
+print(total_return)
+print(total_return/sd(daily_returns))
+print(mean(daily_returns)/sd(daily_returns))
 
 #PROBLEM 4
 M <- 1000 #size of price mesh
