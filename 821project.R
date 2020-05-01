@@ -54,7 +54,7 @@ plot(data[1:length(data[1:45])], type = 'l')
 lines(Y_u, col = "red")
 lines(Y_l, col = "blue")
 
-create_df_BB <- function(rets, window, no_sd, inner_sd){
+df_BB <- function(rets, window, no_sd, inner_sd){
   moving_avg <- rollapply(rets, window, mean)
   moving_sd <- rollapply(rets, window, sd)
   up_bound <- moving_avg + no_sd * moving_sd
@@ -67,7 +67,7 @@ create_df_BB <- function(rets, window, no_sd, inner_sd){
                    "Inner_lower_bound" = inner_low_bound)
   return(df)
 }
-bb = create_df_BB(data[45:67], 3, 1, 0.1)
+bb = df_BB(data[45:67], 3, 1, 0.1)
 plot(data[45:65], type = 'l',ylab="S&P 500 Price",xlab="Testing Period Day",main=expression(paste(sigma,"=0.5")))
 lines(bb$Lower_bound, col = 'red')
 lines(bb$Upper_bound, col = 'red')
