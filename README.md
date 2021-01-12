@@ -1,2 +1,2 @@
-# MF821 project
+# Algorithmic and High Frequency Trading Project
  
